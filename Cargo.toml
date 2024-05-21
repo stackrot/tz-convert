@@ -3,3 +3,7 @@ name = "tz-convert"
 version = "0.1.0"
 edition = "2021"
 authors = ["stackrot <dev@stackrot.dev>"]
+
+[dependencies]
+chrono = "0.4"
+chrono-tz = "0.6"
