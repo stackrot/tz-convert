@@ -6,7 +6,11 @@ on:
       - main
 
 jobs:
+  checks:
+    uses: ./.github/workflows/ci.yml
+
   build-linux:
+    needs: checks
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -34,6 +38,7 @@ jobs:
           path: release/tz-convert-linux.zip
 
   build-windows:
+    needs: checks
     runs-on: windows-latest
     steps:
       - name: Checkout repository
