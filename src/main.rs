@@ -7,6 +7,8 @@ use std::error::Error;
 use std::process::Command;
 use std::process::ExitCode;
 
+mod time;
+
 fn main() -> ExitCode {
     match run() {
         Ok(()) => ExitCode::SUCCESS,
@@ -110,7 +112,7 @@ fn run() -> Result<(), Box<dyn Error>> {
             }
         };
 
-        let user_time = Local.from_local_datetime(&naive_time).unwrap();
+        let user_time = time::resolve(&Local, &naive_time)?.with_timezone(&Local);
 
         clear_screen();
 
