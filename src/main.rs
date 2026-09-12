@@ -1,16 +1,56 @@
-use chrono::prelude::*;
-use colored::*;
-use dialoguer::{Confirm, Input};
+use chrono::{DateTime, NaiveDateTime, Utc};
+use clap::Parser;
+use colored::Colorize;
+use dialoguer::{theme::ColorfulTheme, Confirm, FuzzySelect, Input};
 use prettytable::{row, Table};
 use std::error::Error;
-use std::io::{self, IsTerminal};
+use std::io::{self, IsTerminal, Write};
 use std::process::ExitCode;
 
 mod time;
+mod zone;
+
+use zone::Zone;
+
+#[derive(Parser)]
+#[command(version, about)]
+struct Args {
+    /// Time to convert, in YYYY-MM-DD HH:MM format (1800–2099)
+    #[arg(long, value_parser = time::parse)]
+    time: Option<NaiveDateTime>,
+
+    /// Source IANA timezone, or 'local' for the system timezone
+    #[arg(long, default_value = "local", value_name = "ZONE")]
+    from: Zone,
+
+    /// Destination timezone; repeat or separate names with commas
+    #[arg(
+        long,
+        value_delimiter = ',',
+        value_name = "ZONE",
+        conflicts_with = "all"
+    )]
+    to: Vec<Zone>,
+
+    /// Display the time in every bundled IANA timezone
+    #[arg(long)]
+    all: bool,
+
+    /// List every bundled IANA timezone name and exit
+    #[arg(long, conflicts_with_all = ["time", "from", "to", "all"])]
+    list_timezones: bool,
+}
 
 fn main() -> ExitCode {
     match run() {
         Ok(()) => ExitCode::SUCCESS,
+        Err(error)
+            if error
+                .downcast_ref::<io::Error>()
+                .is_some_and(|error| error.kind() == io::ErrorKind::BrokenPipe) =>
+        {
+            ExitCode::SUCCESS
+        }
         Err(error) => {
             eprintln!("Error: {error}");
             ExitCode::FAILURE
@@ -19,110 +59,137 @@ fn main() -> ExitCode {
 }
 
 fn run() -> Result<(), Box<dyn Error>> {
-    let local_time = Local::now();
+    let args = Args::parse();
 
-    let us_timezones = vec![
-        ("US/Eastern", chrono_tz::US::Eastern),
-        ("US/Central", chrono_tz::US::Central),
-        ("US/Mountain", chrono_tz::US::Mountain),
-        ("US/Pacific", chrono_tz::US::Pacific),
-        ("US/Alaska", chrono_tz::US::Alaska),
-        ("US/Hawaii", chrono_tz::US::Hawaii),
-    ];
-
-    let europe_timezones = vec![
-        ("Europe/London", chrono_tz::Europe::London),
-        ("Europe/Berlin", chrono_tz::Europe::Berlin),
-        ("Europe/Paris", chrono_tz::Europe::Paris),
-        ("Europe/Moscow", chrono_tz::Europe::Moscow),
-    ];
-
-    let asia_timezones = vec![
-        ("Asia/Tokyo", chrono_tz::Asia::Tokyo),
-        ("Asia/Shanghai", chrono_tz::Asia::Shanghai),
-        ("Asia/Kolkata", chrono_tz::Asia::Kolkata),
-        ("Asia/Dubai", chrono_tz::Asia::Dubai),
-    ];
-
-    let australia_timezones = vec![
-        ("Australia/Sydney", chrono_tz::Australia::Sydney),
-        ("Australia/Melbourne", chrono_tz::Australia::Melbourne),
-        ("Australia/Perth", chrono_tz::Australia::Perth),
-    ];
-
-    fn display_timezones(
-        local_time: DateTime<Local>,
-        category: &str,
-        timezones: &Vec<(&str, chrono_tz::Tz)>,
-    ) {
-        let mut table = Table::new();
-        table.add_row(row![
-            format!("Timezone ({})", category)
-                .bold()
-                .underline()
-                .cyan()
-                .to_string(),
-            "Current Time".bold().underline().cyan().to_string()
-        ]);
-
-        for (name, tz) in timezones {
-            let tz_time = local_time.with_timezone(tz);
-            table.add_row(row![
-                name.bold().blue().to_string(),
-                tz_time.format("%Y-%m-%d %H:%M:%S %Z").to_string()
-            ]);
+    if args.list_timezones {
+        let mut output = io::stdout().lock();
+        for zone in zone::all() {
+            writeln!(output, "{zone}")?;
         }
-
-        table.printstd();
-    }
-
-    println!("{}", "Current Times:".bold().cyan().to_string());
-    display_timezones(local_time, "US", &us_timezones);
-    display_timezones(local_time, "Europe", &europe_timezones);
-    display_timezones(local_time, "Asia", &asia_timezones);
-    display_timezones(local_time, "Australia", &australia_timezones);
-
-    if !io::stdin().is_terminal() || !io::stdout().is_terminal() || !io::stderr().is_terminal() {
         return Ok(());
     }
 
-    let convert_time = Confirm::new()
-        .with_prompt("Do you want to convert a time?".bold().yellow().to_string())
-        .interact()?;
+    let time = match args.time {
+        Some(time) => args.from.resolve(&time)?,
+        None => Utc::now(),
+    };
+    let destinations = if args.all {
+        zone::all()
+    } else if args.to.is_empty() {
+        vec![Zone::Named(chrono_tz::UTC)]
+    } else {
+        args.to
+    };
 
-    if convert_time {
-        let example_time = local_time.format("%Y-%m-%d %H:%M").to_string();
+    display(time, args.from, &destinations, args.time.is_some())?;
 
-        let input_time: String = Input::new()
-            .with_prompt(format!(
-                "Enter a time to convert to other timezones\nExample: {}",
-                example_time
-            ))
-            .interact_text()?;
-
-        let naive_time = time::parse(&input_time)?;
-        let user_time = time::resolve(&Local, &naive_time)?.with_timezone(&Local);
-
-        println!(
-            "{}",
-            format!("There's the conversion for {}", input_time)
-                .bold()
-                .cyan()
-                .to_string()
-        );
-
-        println!("{}", "US Timezones:".bold().cyan().to_string());
-        display_timezones(user_time, "US", &us_timezones);
-
-        println!("{}", "Europe Timezones:".bold().cyan().to_string());
-        display_timezones(user_time, "Europe", &europe_timezones);
-
-        println!("{}", "Asia Timezones:".bold().cyan().to_string());
-        display_timezones(user_time, "Asia", &asia_timezones);
-
-        println!("{}", "Australia Timezones:".bold().cyan().to_string());
-        display_timezones(user_time, "Australia", &australia_timezones);
+    if std::env::args_os().len() == 1
+        && io::stdin().is_terminal()
+        && io::stdout().is_terminal()
+        && io::stderr().is_terminal()
+    {
+        interactive()?;
     }
 
     Ok(())
+}
+
+fn display(
+    time: DateTime<Utc>,
+    source: Zone,
+    destinations: &[Zone],
+    converted: bool,
+) -> io::Result<()> {
+    let heading = if converted {
+        "Converted times"
+    } else {
+        "Current times"
+    };
+    let mut output = io::stdout().lock();
+    writeln!(output, "{} (source: {source}):", heading.bold().cyan())?;
+
+    let mut table = Table::new();
+    table.add_row(row!["Timezone", "Time", "UTC offset"]);
+    let mut displayed = Vec::new();
+
+    for zone in std::iter::once(&source).chain(destinations) {
+        if displayed.contains(zone) {
+            continue;
+        }
+        displayed.push(*zone);
+        table.add_row(row![
+            zone.to_string(),
+            zone.format(time, "%Y-%m-%d %H:%M:%S %Z"),
+            zone.format(time, "%::z")
+        ]);
+    }
+
+    table.print(&mut output)?;
+    Ok(())
+}
+
+fn select_zone(prompt: &str, default: Zone) -> Result<Option<Zone>, dialoguer::Error> {
+    let mut zones = vec![Zone::Local];
+    zones.extend(zone::all());
+    let selected = FuzzySelect::with_theme(&ColorfulTheme::default())
+        .with_prompt(prompt)
+        .items(&zones)
+        .default(zones.iter().position(|zone| *zone == default).unwrap_or(0))
+        .max_length(12)
+        .interact_opt()?;
+    Ok(selected.map(|index| zones[index]))
+}
+
+fn interactive() -> Result<(), Box<dyn Error>> {
+    if Confirm::new()
+        .with_prompt("Convert a time?")
+        .default(false)
+        .interact_opt()?
+        != Some(true)
+    {
+        return Ok(());
+    }
+
+    let Some(source) = select_zone("Source timezone (type to search)", Zone::Local)? else {
+        return Ok(());
+    };
+    let input: String = Input::new()
+        .with_prompt(format!("Time in {source} (YYYY-MM-DD HH:MM)"))
+        .default(source.format(Utc::now(), "%Y-%m-%d %H:%M"))
+        .validate_with(|value: &String| {
+            time::parse(value)
+                .and_then(|time| source.resolve(&time))
+                .map(|_| ())
+        })
+        .interact_text()?;
+    let time = source.resolve(&time::parse(&input)?)?;
+    let destinations = select_destinations()?;
+
+    if !destinations.is_empty() {
+        display(time, source, &destinations, true)?;
+    }
+    Ok(())
+}
+
+fn select_destinations() -> Result<Vec<Zone>, dialoguer::Error> {
+    let mut destinations = Vec::new();
+
+    while let Some(zone) = select_zone(
+        "Destination timezone (type to search)",
+        Zone::Named(chrono_tz::UTC),
+    )? {
+        if !destinations.contains(&zone) {
+            destinations.push(zone);
+        }
+        if Confirm::new()
+            .with_prompt("Add another destination?")
+            .default(false)
+            .interact_opt()?
+            != Some(true)
+        {
+            break;
+        }
+    }
+
+    Ok(destinations)
 }
