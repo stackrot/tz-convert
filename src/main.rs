@@ -3,9 +3,21 @@ use chrono::NaiveDateTime;
 use colored::*;
 use dialoguer::{Confirm, Input};
 use prettytable::{row, Table};
+use std::error::Error;
 use std::process::Command;
+use std::process::ExitCode;
 
-fn main() {
+fn main() -> ExitCode {
+    match run() {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(error) => {
+            eprintln!("Error: {error}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
+fn run() -> Result<(), Box<dyn Error>> {
     let local_time = Local::now();
 
     let us_timezones = vec![
@@ -79,8 +91,7 @@ fn main() {
 
     let convert_time = Confirm::new()
         .with_prompt("Do you want to convert a time?".bold().yellow().to_string())
-        .interact()
-        .unwrap();
+        .interact()?;
 
     if convert_time {
         let example_time = local_time.format("%Y-%m-%d %H:%M").to_string();
@@ -90,20 +101,12 @@ fn main() {
                 "Enter a time to convert to other timezones\nExample: {}",
                 example_time
             ))
-            .interact_text()
-            .unwrap();
+            .interact_text()?;
 
         let naive_time = match NaiveDateTime::parse_from_str(&input_time, "%Y-%m-%d %H:%M") {
             Ok(dt) => dt,
             Err(_) => {
-                eprintln!(
-                    "{}",
-                    "Invalid time format. Please use YYYY-MM-DD HH:MM."
-                        .bold()
-                        .red()
-                        .to_string()
-                );
-                return;
+                return Err("Invalid time format. Please use YYYY-MM-DD HH:MM.".into());
             }
         };
 
@@ -131,4 +134,6 @@ fn main() {
         println!("{}", "Australia Timezones:".bold().cyan().to_string());
         display_timezones(user_time, "Australia", &australia_timezones);
     }
+
+    Ok(())
 }
