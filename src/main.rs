@@ -1,5 +1,4 @@
 use chrono::prelude::*;
-use chrono::NaiveDateTime;
 use colored::*;
 use dialoguer::{Confirm, Input};
 use prettytable::{row, Table};
@@ -105,13 +104,7 @@ fn run() -> Result<(), Box<dyn Error>> {
             ))
             .interact_text()?;
 
-        let naive_time = match NaiveDateTime::parse_from_str(&input_time, "%Y-%m-%d %H:%M") {
-            Ok(dt) => dt,
-            Err(_) => {
-                return Err("Invalid time format. Please use YYYY-MM-DD HH:MM.".into());
-            }
-        };
-
+        let naive_time = time::parse(&input_time)?;
         let user_time = time::resolve(&Local, &naive_time)?.with_timezone(&Local);
 
         clear_screen();

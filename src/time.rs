@@ -1,4 +1,16 @@
-use chrono::{DateTime, LocalResult, NaiveDateTime, Offset, TimeZone, Utc};
+use chrono::{DateTime, Datelike, LocalResult, NaiveDateTime, Offset, TimeZone, Utc};
+
+pub fn parse(value: &str) -> Result<NaiveDateTime, String> {
+    let time = NaiveDateTime::parse_from_str(value.trim(), "%Y-%m-%d %H:%M")
+        .map_err(|_| "Invalid time. Please use YYYY-MM-DD HH:MM.".to_string())?;
+
+    // chrono-tz expands recurring timezone rules for 1800..2100 only.
+    if !(1800..2100).contains(&time.year()) {
+        return Err("Supported years are 1800–2099.".into());
+    }
+
+    Ok(time)
+}
 
 pub fn resolve<T: TimeZone>(timezone: &T, time: &NaiveDateTime) -> Result<DateTime<Utc>, String> {
     match timezone.from_local_datetime(time) {
@@ -48,5 +60,22 @@ mod tests {
                 expected
             );
         }
+    }
+
+    #[test]
+    fn rejects_dates_outside_timezone_data() {
+        for value in ["1799-12-31 23:59", "2100-01-01 00:00", "2200-07-15 12:00"] {
+            assert!(super::parse(value).unwrap_err().contains("1800–2099"));
+        }
+        assert!(super::parse("1800-01-01 00:00").is_ok());
+        assert!(super::parse("2099-12-31 23:59").is_ok());
+    }
+
+    #[test]
+    fn validates_calendar_dates() {
+        for value in ["tomorrow", "2026-02-30 12:00", "2026-01-01 24:00"] {
+            assert!(super::parse(value).is_err());
+        }
+        assert!(super::parse("2024-02-29 00:00").is_ok());
     }
 }
