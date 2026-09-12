@@ -4,7 +4,6 @@ use dialoguer::{Confirm, Input};
 use prettytable::{row, Table};
 use std::error::Error;
 use std::io::{self, IsTerminal};
-use std::process::Command;
 use std::process::ExitCode;
 
 mod time;
@@ -50,14 +49,6 @@ fn run() -> Result<(), Box<dyn Error>> {
         ("Australia/Melbourne", chrono_tz::Australia::Melbourne),
         ("Australia/Perth", chrono_tz::Australia::Perth),
     ];
-
-    fn clear_screen() {
-        if cfg!(target_os = "windows") {
-            Command::new("cmd").args(&["/C", "cls"]).status().unwrap();
-        } else {
-            Command::new("clear").status().unwrap();
-        }
-    }
 
     fn display_timezones(
         local_time: DateTime<Local>,
@@ -111,8 +102,6 @@ fn run() -> Result<(), Box<dyn Error>> {
 
         let naive_time = time::parse(&input_time)?;
         let user_time = time::resolve(&Local, &naive_time)?.with_timezone(&Local);
-
-        clear_screen();
 
         println!(
             "{}",
