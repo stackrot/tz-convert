@@ -18,7 +18,7 @@ jobs:
           toolchain: stable
 
       - name: Build project
-        run: cargo build --release
+        run: cargo build --release --locked
 
       - name: Zip Linux binary
         run: |
@@ -45,7 +45,7 @@ jobs:
           toolchain: stable-x86_64-pc-windows-msvc
 
       - name: Build project
-        run: cargo build --release
+        run: cargo build --release --locked
 
       - name: Zip Windows binary
         run: |
