@@ -3,6 +3,7 @@ use colored::*;
 use dialoguer::{Confirm, Input};
 use prettytable::{row, Table};
 use std::error::Error;
+use std::io::{self, IsTerminal};
 use std::process::Command;
 use std::process::ExitCode;
 
@@ -89,6 +90,10 @@ fn run() -> Result<(), Box<dyn Error>> {
     display_timezones(local_time, "Europe", &europe_timezones);
     display_timezones(local_time, "Asia", &asia_timezones);
     display_timezones(local_time, "Australia", &australia_timezones);
+
+    if !io::stdin().is_terminal() || !io::stdout().is_terminal() || !io::stderr().is_terminal() {
+        return Ok(());
+    }
 
     let convert_time = Confirm::new()
         .with_prompt("Do you want to convert a time?".bold().yellow().to_string())
