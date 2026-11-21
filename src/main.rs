@@ -1,7 +1,7 @@
 use clap::Parser;
 use colored::Colorize;
-use dialoguer::{theme::ColorfulTheme, Confirm, FuzzySelect, Input};
-use jiff::{civil::DateTime, tz::TimeZone, Timestamp};
+use dialoguer::{Confirm, FuzzySelect, Input, theme::ColorfulTheme};
+use jiff::{Timestamp, civil::DateTime, tz::TimeZone};
 use std::error::Error;
 use std::io::{self, IsTerminal, Write};
 use std::process::ExitCode;

@@ -1,6 +1,6 @@
+use jiff::Timestamp;
 use jiff::civil::DateTime;
 use jiff::tz::{self, TimeZone};
-use jiff::Timestamp;
 use std::fmt;
 use std::str::FromStr;
 

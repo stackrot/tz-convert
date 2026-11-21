@@ -1,6 +1,6 @@
+use jiff::Timestamp;
 use jiff::civil::DateTime;
 use jiff::tz::{AmbiguousOffset, TimeZone};
-use jiff::Timestamp;
 
 pub fn parse(value: &str) -> Result<DateTime, String> {
     DateTime::strptime("%Y-%m-%d %H:%M", value.trim())
