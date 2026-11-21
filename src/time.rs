@@ -3,14 +3,8 @@ use jiff::tz::{AmbiguousOffset, TimeZone};
 use jiff::Timestamp;
 
 pub fn parse(value: &str) -> Result<DateTime, String> {
-    let time = DateTime::strptime("%Y-%m-%d %H:%M", value.trim())
-        .map_err(|_| "Invalid time. Please use YYYY-MM-DD HH:MM.".to_string())?;
-
-    if !(1800..2100).contains(&time.year()) {
-        return Err("Supported years are 1800–2099.".into());
-    }
-
-    Ok(time)
+    DateTime::strptime("%Y-%m-%d %H:%M", value.trim())
+        .map_err(|_| "Invalid time. Please use YYYY-MM-DD HH:MM.".into())
 }
 
 pub fn resolve(timezone: &TimeZone, time: DateTime) -> Result<Timestamp, String> {
@@ -76,12 +70,23 @@ mod tests {
     }
 
     #[test]
-    fn rejects_dates_outside_timezone_data() {
-        for value in ["1799-12-31 23:59", "2100-01-01 00:00", "2200-07-15 12:00"] {
-            assert!(super::parse(value).unwrap_err().contains("1800–2099"));
+    fn resolves_dates_beyond_transition_data() {
+        let london = zone("Europe/London");
+        for (value, expected) in [
+            ("1700-07-15 12:00", "1700-07-15T12:01:15Z"),
+            ("2200-07-15 12:00", "2200-07-15T11:00:00Z"),
+        ] {
+            assert_eq!(
+                resolve(&london, parse(value)).unwrap().to_string(),
+                expected
+            );
         }
-        assert!(super::parse("1800-01-01 00:00").is_ok());
-        assert!(super::parse("2099-12-31 23:59").is_ok());
+    }
+
+    #[test]
+    fn rejects_instants_outside_the_supported_range() {
+        let error = resolve(&zone("Pacific/Kiritimati"), parse("-9999-01-01 00:00"));
+        assert!(error.unwrap_err().contains("outside the supported range"));
     }
 
     #[test]

@@ -15,7 +15,7 @@ use zone::Zone;
 #[derive(Parser)]
 #[command(version, about)]
 struct Args {
-    /// Time to convert, in YYYY-MM-DD HH:MM format (1800–2099)
+    /// Time to convert, in YYYY-MM-DD HH:MM format
     #[arg(long, value_parser = time::parse)]
     time: Option<DateTime>,
 

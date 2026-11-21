@@ -118,11 +118,24 @@ fn accepts_previously_unlisted_source_zones_and_rolls_over_dates() {
 }
 
 #[test]
+fn converts_dates_beyond_transition_data() {
+    let output = success(&[
+        "--time",
+        "2200-07-15 12:00",
+        "--from",
+        "Europe/London",
+        "--to",
+        "UTC",
+    ]);
+    assert!(output.contains("2200-07-15 12:00:00 BST"));
+    assert!(output.contains("2200-07-15 11:00:00 UTC"));
+}
+
+#[test]
 fn reports_invalid_dates_and_zones_as_failures() {
     for args in [
         vec!["--time", "tomorrow"],
         vec!["--time", "2026-02-30 12:00"],
-        vec!["--time", "2100-07-15 12:00"],
         vec!["--from", "Europe/Unknown"],
         vec!["--to", "Asia/Unknown"],
         vec!["--all", "--to", "UTC"],

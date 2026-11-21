@@ -85,8 +85,9 @@ Times skipped by a clock change are rejected. Times that occur twice when
 clocks go back are also rejected, with both possible offsets shown. To convert
 one of those occurrences, supply its unambiguous UTC time with `--from UTC`.
 
-Supported input years are **1800–2099**. Dates outside that range are
-rejected.
+Years up to 9999 are accepted. Dates far in the future use each zone's current
+daylight saving rules. Dates before a zone adopted standard time use its local
+mean time from the timezone database.
 
 On Linux, conversions use the rules in the system timezone database, which the
 distribution's `tzdata` package keeps up to date. Windows builds use the copy
