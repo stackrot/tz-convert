@@ -21,10 +21,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-22.04
+          - os: ubuntu-24.04
+            target: x86_64-unknown-linux-musl
             binary: tz-convert
             name: tz-convert-linux
           - os: windows-2025
+            target: x86_64-pc-windows-msvc
             binary: tz-convert.exe
             name: tz-convert-windows
     runs-on: ${{ matrix.os }}
@@ -39,9 +41,17 @@ jobs:
       - uses: actions-rust-lang/setup-rust-toolchain@a188e68d0fd2bd36ad51dccb2b07ba6e75105f30 # v2.0.1
         with:
           toolchain: stable
-      - run: cargo build --release --locked
+          target: ${{ matrix.target }}
+      - name: Build binary
+        env:
+          TARGET: ${{ matrix.target }}
+          BINARY: ${{ matrix.binary }}
+        run: |
+          cargo build --release --locked --target "$TARGET"
+          "target/$TARGET/release/$BINARY" --time "2026-07-15 12:00" --from Europe/London --to UTC
       - name: Package binary
         env:
+          TARGET: ${{ matrix.target }}
           BINARY: ${{ matrix.binary }}
           ASSET: ${{ matrix.name }}.zip
         run: |
@@ -50,8 +60,9 @@ jobs:
           import zipfile
 
           binary = os.environ['BINARY']
+          path = f"target/{os.environ['TARGET']}/release/{binary}"
           with zipfile.ZipFile(os.environ['ASSET'], 'w', zipfile.ZIP_DEFLATED) as archive:
-              archive.write('target/release/' + binary, binary)
+              archive.write(path, binary)
           PY
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -61,7 +72,7 @@ jobs:
 
   release:
     needs: build
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
       contents: write
@@ -81,7 +92,7 @@ jobs:
           cat > "$RUNNER_TEMP/release-notes.md" <<EOF_NOTES
           Automatic build for commit $GITHUB_SHA.
 
-          - Linux: x86-64, glibc 2.35 or newer, system tzdata. Extract and run tz-convert.
+          - Linux: x86-64, static binary, needs the system tzdata. Extract and run tz-convert.
           - Windows: x86-64. Extract and run tz-convert.exe.
           - SHA256SUMS contains checksums for both archives.
           EOF_NOTES

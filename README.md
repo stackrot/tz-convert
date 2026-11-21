@@ -16,7 +16,7 @@ Download and extract an archive from the [latest release](https://github.com/sta
 
 | Platform | Download | Requirements |
 | --- | --- | --- |
-| Linux | [tz-convert-linux.zip](https://github.com/stackrot/tz-convert/releases/latest/download/tz-convert-linux.zip) | x86-64, glibc 2.35 or newer, tzdata |
+| Linux | [tz-convert-linux.zip](https://github.com/stackrot/tz-convert/releases/latest/download/tz-convert-linux.zip) | x86-64, tzdata |
 | Windows | [tz-convert-windows.zip](https://github.com/stackrot/tz-convert/releases/latest/download/tz-convert-windows.zip) | x86-64 |
 
 On Linux:
