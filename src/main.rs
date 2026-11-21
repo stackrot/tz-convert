@@ -2,11 +2,11 @@ use clap::Parser;
 use colored::Colorize;
 use dialoguer::{theme::ColorfulTheme, Confirm, FuzzySelect, Input};
 use jiff::{civil::DateTime, tz::TimeZone, Timestamp};
-use prettytable::{row, Table};
 use std::error::Error;
 use std::io::{self, IsTerminal, Write};
 use std::process::ExitCode;
 
+mod table;
 mod time;
 mod zone;
 
@@ -108,8 +108,7 @@ fn display(
     let mut output = io::stdout().lock();
     writeln!(output, "{} (source: {source}):", heading.bold().cyan())?;
 
-    let mut table = Table::new();
-    table.add_row(row!["Timezone", "Time", "UTC offset"]);
+    let mut rows = vec![["Timezone", "Time", "UTC offset"].map(String::from)];
     let mut displayed = Vec::new();
 
     for zone in std::iter::once(source).chain(destinations) {
@@ -117,15 +116,14 @@ fn display(
             continue;
         }
         displayed.push(zone);
-        table.add_row(row![
+        rows.push([
             zone.to_string(),
             zone.format(time, "%Y-%m-%d %H:%M:%S %Z"),
-            zone.format(time, "%::z")
+            zone.format(time, "%::z"),
         ]);
     }
 
-    table.print(&mut output)?;
-    Ok(())
+    table::write(&mut output, &rows)
 }
 
 fn select_zone(prompt: &str, default: Zone) -> Result<Option<Zone>, dialoguer::Error> {
