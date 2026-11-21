@@ -1,10 +1,11 @@
-use chrono::{DateTime, Datelike, LocalResult, NaiveDateTime, Offset, TimeZone, Utc};
+use jiff::civil::DateTime;
+use jiff::tz::{AmbiguousOffset, TimeZone};
+use jiff::Timestamp;
 
-pub fn parse(value: &str) -> Result<NaiveDateTime, String> {
-    let time = NaiveDateTime::parse_from_str(value.trim(), "%Y-%m-%d %H:%M")
+pub fn parse(value: &str) -> Result<DateTime, String> {
+    let time = DateTime::strptime("%Y-%m-%d %H:%M", value.trim())
         .map_err(|_| "Invalid time. Please use YYYY-MM-DD HH:MM.".to_string())?;
 
-    // chrono-tz expands recurring timezone rules for 1800..2100 only.
     if !(1800..2100).contains(&time.year()) {
         return Err("Supported years are 1800–2099.".into());
     }
@@ -12,14 +13,16 @@ pub fn parse(value: &str) -> Result<NaiveDateTime, String> {
     Ok(time)
 }
 
-pub fn resolve<T: TimeZone>(timezone: &T, time: &NaiveDateTime) -> Result<DateTime<Utc>, String> {
-    match timezone.from_local_datetime(time) {
-        LocalResult::Single(time) => Ok(time.with_timezone(&Utc)),
-        LocalResult::None => Err("This time does not exist in the source timezone.".into()),
-        LocalResult::Ambiguous(first, second) => Err(format!(
-            "This time occurs twice in the source timezone (UTC offsets {} and {}). Choose an unambiguous time.",
-            first.offset().fix(),
-            second.offset().fix()
+pub fn resolve(timezone: &TimeZone, time: DateTime) -> Result<Timestamp, String> {
+    match timezone.to_ambiguous_timestamp(time).offset() {
+        AmbiguousOffset::Unambiguous { offset } => offset
+            .to_timestamp(time)
+            .map_err(|_| "This time is outside the supported range.".into()),
+        AmbiguousOffset::Gap { .. } => {
+            Err("This time does not exist in the source timezone.".into())
+        }
+        AmbiguousOffset::Fold { before, after } => Err(format!(
+            "This time occurs twice in the source timezone (UTC offsets {before} and {after}). Choose an unambiguous time."
         )),
     }
 }
@@ -27,36 +30,46 @@ pub fn resolve<T: TimeZone>(timezone: &T, time: &NaiveDateTime) -> Result<DateTi
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono_tz::{America::New_York, Europe::London};
 
-    fn parse(value: &str) -> NaiveDateTime {
-        NaiveDateTime::parse_from_str(value, "%Y-%m-%d %H:%M").unwrap()
+    fn parse(value: &str) -> DateTime {
+        DateTime::strptime("%Y-%m-%d %H:%M", value).unwrap()
+    }
+
+    fn zone(name: &str) -> TimeZone {
+        TimeZone::get(name).unwrap()
     }
 
     #[test]
     fn rejects_daylight_saving_gaps() {
-        for (zone, value) in [(London, "2026-03-29 01:30"), (New_York, "2026-03-08 02:30")] {
-            let error = resolve(&zone, &parse(value)).unwrap_err();
+        for (name, value) in [
+            ("Europe/London", "2026-03-29 01:30"),
+            ("America/New_York", "2026-03-08 02:30"),
+        ] {
+            let error = resolve(&zone(name), parse(value)).unwrap_err();
             assert!(error.contains("does not exist"));
         }
     }
 
     #[test]
     fn rejects_ambiguous_times() {
-        for (zone, value) in [(London, "2026-10-25 01:30"), (New_York, "2026-11-01 01:30")] {
-            let error = resolve(&zone, &parse(value)).unwrap_err();
+        for (name, value) in [
+            ("Europe/London", "2026-10-25 01:30"),
+            ("America/New_York", "2026-11-01 01:30"),
+        ] {
+            let error = resolve(&zone(name), parse(value)).unwrap_err();
             assert!(error.contains("occurs twice"));
         }
     }
 
     #[test]
     fn resolves_winter_and_summer_offsets() {
+        let london = zone("Europe/London");
         for (value, expected) in [
-            ("2026-01-15 12:00", "2026-01-15T12:00:00+00:00"),
-            ("2026-07-15 12:00", "2026-07-15T11:00:00+00:00"),
+            ("2026-01-15 12:00", "2026-01-15T12:00:00Z"),
+            ("2026-07-15 12:00", "2026-07-15T11:00:00Z"),
         ] {
             assert_eq!(
-                resolve(&London, &parse(value)).unwrap().to_rfc3339(),
+                resolve(&london, parse(value)).unwrap().to_string(),
                 expected
             );
         }

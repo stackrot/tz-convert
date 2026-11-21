@@ -1,8 +1,9 @@
 # tz-convert
 
-Convert times between any of the IANA timezones bundled with `chrono-tz`.
-This includes UTC, regional names such as `Africa/Nairobi` and
-`Pacific/Chatham`, and aliases such as `US/Eastern`.
+Convert times between IANA timezones. This includes UTC, regional names such
+as `Africa/Nairobi` and `Pacific/Chatham`, and aliases such as `US/Eastern`.
+Timezone data comes from the system database on Linux and from a copy built
+into the program on Windows.
 
 Running `tz-convert` without arguments shows local time and UTC. In a terminal,
 it then offers searchable source and destination pickers. Type a timezone or
@@ -15,7 +16,7 @@ Download and extract an archive from the [latest release](https://github.com/sta
 
 | Platform | Download | Requirements |
 | --- | --- | --- |
-| Linux | [tz-convert-linux.zip](https://github.com/stackrot/tz-convert/releases/latest/download/tz-convert-linux.zip) | x86-64, glibc 2.35 or newer |
+| Linux | [tz-convert-linux.zip](https://github.com/stackrot/tz-convert/releases/latest/download/tz-convert-linux.zip) | x86-64, glibc 2.35 or newer, tzdata |
 | Windows | [tz-convert-windows.zip](https://github.com/stackrot/tz-convert/releases/latest/download/tz-convert-windows.zip) | x86-64 |
 
 On Linux:
@@ -66,8 +67,8 @@ tz-convert --time "2026-12-31 23:30" --from UTC --all
 ```
 
 `--from` defaults to `local`, which uses the system timezone. `local` can also be
-used as a destination. Named timezones are case-sensitive; use
-`--list-timezones` for their exact names. With no destinations, the output shows
+used as a destination. Timezone names are not case-sensitive. Output uses the
+spelling shown by `--list-timezones`. With no destinations, the output shows
 the source timezone and UTC. Omit `--time` to use the current instant.
 
 Explicit command-line options never prompt. With no arguments and redirected
@@ -84,10 +85,12 @@ Times skipped by a clock change are rejected. Times that occur twice when
 clocks go back are also rejected, with both possible offsets shown. To convert
 one of those occurrences, supply its unambiguous UTC time with `--from UTC`.
 
-Supported input years are **1800–2099**, matching the range of recurring rules
-expanded by the bundled timezone library. Dates outside that range are rejected
-rather than silently using an incorrect offset. Future conversions use the
-rules in the bundled database; timezone rule changes require an updated build.
+Supported input years are **1800–2099**. Dates outside that range are
+rejected.
+
+On Linux, conversions use the rules in the system timezone database, which the
+distribution's `tzdata` package keeps up to date. Windows builds use the copy
+included at build time, so rule changes there need an updated build.
 
 ## Build and checks
 

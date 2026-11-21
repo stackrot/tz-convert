@@ -49,16 +49,23 @@ fn success(args: &[&str]) -> String {
     String::from_utf8(output.stdout).unwrap()
 }
 
+fn timezone_names() -> Vec<String> {
+    let mut names: Vec<_> = jiff::tz::db()
+        .available()
+        .map(|name| name.to_string())
+        .collect();
+    names.sort_unstable();
+    names
+}
+
 #[test]
 fn lists_the_complete_timezone_database() {
     let output = success(&["--list-timezones"]);
     let names: Vec<_> = output.lines().collect();
-    let mut expected: Vec<_> = chrono_tz::TZ_VARIANTS
-        .iter()
-        .map(|zone| zone.name())
-        .collect();
-    expected.sort_unstable();
-    assert_eq!(names, expected);
+    assert_eq!(names, timezone_names());
+    for name in ["UTC", "Europe/London", "US/Eastern"] {
+        assert!(names.contains(&name), "Missing {name}");
+    }
 }
 
 #[test]
@@ -70,9 +77,10 @@ fn converts_to_every_timezone() {
         .map(|line| line.split('|').nth(1).unwrap().trim())
         .skip(1)
         .collect();
-    assert_eq!(rows.len(), chrono_tz::TZ_VARIANTS.len());
-    for zone in chrono_tz::TZ_VARIANTS {
-        assert!(rows.contains(&zone.name()), "Missing {zone}");
+    let names = timezone_names();
+    assert_eq!(rows.len(), names.len());
+    for name in &names {
+        assert!(rows.contains(&name.as_str()), "Missing {name}");
     }
 }
 
@@ -187,4 +195,26 @@ fn duplicate_destinations_are_only_displayed_once() {
             .count(),
         1
     );
+}
+
+#[test]
+fn aliases_are_displayed_separately() {
+    let output = success(&["--from", "UTC", "--to", "US/Eastern,America/New_York"]);
+    assert!(output.contains("| US/Eastern "));
+    assert!(output.contains("| America/New_York "));
+}
+
+#[test]
+fn timezone_names_are_case_insensitive() {
+    let output = success(&[
+        "--time",
+        "2026-07-15 12:00",
+        "--from",
+        "europe/london",
+        "--to",
+        "ASIA/TOKYO",
+    ]);
+    assert!(output.contains("source: Europe/London"));
+    assert!(output.contains("| Asia/Tokyo "));
+    assert!(output.contains("2026-07-15 20:00:00 JST"));
 }

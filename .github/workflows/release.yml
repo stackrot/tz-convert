@@ -81,7 +81,7 @@ jobs:
           cat > "$RUNNER_TEMP/release-notes.md" <<EOF_NOTES
           Automatic build for commit $GITHUB_SHA.
 
-          - Linux: x86-64, glibc 2.35 or newer. Extract and run tz-convert.
+          - Linux: x86-64, glibc 2.35 or newer, system tzdata. Extract and run tz-convert.
           - Windows: x86-64. Extract and run tz-convert.exe.
           - SHA256SUMS contains checksums for both archives.
           EOF_NOTES
