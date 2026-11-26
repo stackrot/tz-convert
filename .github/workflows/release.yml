@@ -3,6 +3,14 @@ name: Release
 on:
   push:
     branches: [main]
+    # Only the code and the workflows that build it cut a new release.
+    paths:
+      - src/**
+      - Cargo.toml
+      - Cargo.lock
+      - .github/workflows/release.yml
+      - .github/workflows/ci.yml
+  workflow_dispatch:
 
 permissions:
   contents: read
